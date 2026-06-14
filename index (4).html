@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="es">	
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WHA-MSG · Envío Masivo WhatsApp</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --bg:        #f0f7f2;
+      --bg2:       #e4f0e8;
+      --surface:   #ffffff;
+      --surface2:  #f6fbf7;
+      --border:    #c8e6d0;
+      --border2:   #a8d8b8;
+      --green:     #16a34a;
+      --green2:    #15803d;
+      --green3:    #22c55e;
+      --greenlit:  #dcfce7;
+      --text:      #0f2d1a;
+      --muted:     #5a8a6a;
+      --muted2:    #86b898;
+      --ok:        #16a34a;
+      --err:       #dc2626;
+      --white:     #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* Fondo con patrón sutil */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle at 20% 20%, rgba(22,163,74,.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(22,163,74,.04) 0%, transparent 50%),
+        linear-gradient(rgba(22,163,74,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22,163,74,.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; position: relative; z-index: 1; }
+    .screen.active { display: flex; }
+
+    /* ════════════════════════════════
+       LOGIN
+    ════════════════════════════════ */
+    #loginScreen {
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      width: 440px;
+      padding: 52px 44px 44px;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(22,163,74,.12), 0 4px 16px rgba(0,0,0,.06);
+      border-radius: 4px;
+    }
+    .login-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, var(--green), var(--green3));
+      border-radius: 4px 4px 0 0;
+    }
+    .login-logo {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .logo-icon {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, var(--green), var(--green3));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 24px rgba(22,163,74,.3);
+    }
+    .logo-icon svg { width: 34px; height: 34px; fill: #fff; }
+    .brand {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: var(--text);
+    }
+    .brand em { color: var(--green); font-style: normal; }
+    .brand-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      text-transform: uppercase;
+    }
+    .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-radius: 3px;
+    }
+    .field input[type="password"] { text-transform: none; letter-spacing: 2px; }
+    .field input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(22,163,74,.1);
+    }
+
+    /* Rol & Cola toggles */
+    .toggle-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .toggle-group.three { grid-template-columns: 1fr 1fr 1fr; }
+    .toggle-btn {
+      padding: 10px 8px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 2px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .18s;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+    .toggle-btn:hover {
+      border-color: var(--green);
+      color: var(--green);
+      background: var(--greenlit);
+    }
+    .toggle-btn.active {
+      background: linear-gradient(135deg, var(--green), var(--green2));
+      border-color: var(--green2);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(22,163,74,.25);
+    }
+    /* Cola field hidden by default - shown for GESTOR only */
+    #colaField { display: block; }
+    /* Nombre/Apellido hidden for COORDINADOR */
+    #nombresField { display: block; }
+    .btn-main {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%;
+      background: linear-gradient(135deg, var(--green), var(--green2));
+      border: none;
+      color: #fff;
+      padding: 15px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all .2s;
+      margin-top: 8px;
+      border-radius: 3px;
+      box-shadow: 0 4px 14px rgba(22,163,74,.3);
+    }
+    .btn-main:hover {
+      background: linear-gradient(135deg, var(--green2), #14532d);
+      box-shadow: 0 6px 20px rgba(22,163,74,.4);
+      transform: translateY(-1px);
+    }
+    .btn-main:active { transform: scale(.99) translateY(0); }
+    .btn-main:disabled { background: #d1d5db; box-shadow: none; cursor: not-allowed; color: #9ca3af; }
+    .btn-main svg { width: 18px; height: 18px; fill: currentColor; }
+    .login-err {
+      color: var(--err);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      text-align: center;
+      margin-top: 12px;
+      min-height: 16px;
+    }
+
+    /* ════════════════════════════════
+       QR SCREEN
+    ════════════════════════════════ */
+    #qrScreen {
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 0;
+      max-width: 700px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(22,163,74,.12), 0 4px 16px rgba(0,0,0,.06);
+      overflow: hidden;
+      border-radius: 4px;
+    }
+    .qr-left {
+      padding: 44px 40px;
+      border-right: 1px solid var(--border);
+    }
+    .qr-left h2 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--green);
+      margin-bottom: 28px;
+      text-transform: uppercase;
+    }
+    .step {
+      display: flex; align-items: flex-start; gap: 14px;
+      margin-bottom: 20px;
+    }
+    .step-n {
+      width: 28px; height: 28px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--green), var(--green3));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600; font-size: 12px; color: #fff;
+      box-shadow: 0 3px 8px rgba(22,163,74,.25);
+    }
+    .step-t {
+      font-size: 13.5px; line-height: 1.65; color: var(--muted);
+      padding-top: 3px;
+    }
+    .step-t strong { color: var(--text); font-weight: 600; }
+    .qr-right {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 36px 28px;
+      background: var(--surface2);
+      gap: 14px;
+    }
+    .qr-box {
+      width: 220px; height: 220px;
+      background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 0 4px 16px rgba(22,163,74,.1);
+    }
+    .qr-box img { width: 100%; height: 100%; display: block; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .qr-loading {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .qr-loading span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; color: var(--muted);
+    }
+    .qr-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--muted2);
+      text-align: center; letter-spacing: 1px;
+    }
+    .btn-regen {
+      width: 100%;
+      padding: 9px 0;
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 2px;
+      cursor: pointer;
+      transition: all .2s;
+      border-radius: 3px;
+    }
+    .btn-regen:hover {
+      border-color: var(--green);
+      color: var(--green);
+      background: var(--greenlit);
+    }
+
+    /* ════════════════════════════════
+       MAIN APP
+    ════════════════════════════════ */
+    #mainScreen {
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Topbar */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      height: 54px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(22,163,74,.08);
+    }
+    .tb-brand {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 16px; font-weight: 800; letter-spacing: 2px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .tb-brand em { color: var(--green); font-style: normal; }
+    .tb-logo-mini {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--green), var(--green3));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tb-logo-mini svg { width: 16px; height: 16px; fill: #fff; }
+    .tb-right { display: flex; align-items: center; gap: 18px; }
+    .wa-pill {
+      display: flex; align-items: center; gap: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--muted); letter-spacing: 1px;
+      background: var(--greenlit);
+      padding: 5px 10px; border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+    .wa-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--ok);
+    }
+    .wa-dot.off { background: var(--err); animation: none !important; }
+    .wa-dot { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .user-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--green2);
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+    .btn-out {
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted);
+      padding: 6px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 1px;
+      cursor: pointer;
+      transition: all .2s;
+      border-radius: 3px;
+    }
+    .btn-out:hover { border-color: var(--err); color: var(--err); background: #fef2f2; }
+
+    /* Layout */
+    .main-wrap {
+      display: grid;
+      grid-template-columns: 1fr 370px;
+      gap: 20px;
+      padding: 22px 28px;
+      max-width: 1360px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 22px 24px;
+      border-radius: 4px;
+      box-shadow: 0 2px 12px rgba(22,163,74,.06);
+    }
+    .panel-hdr {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 3px; color: var(--muted);
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
+      text-transform: uppercase;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .panel-hdr::before {
+      content: '';
+      width: 3px; height: 14px;
+      background: linear-gradient(to bottom, var(--green), var(--green3));
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* Table controls */
+    .tbl-ctrl {
+      display: flex; align-items: center; gap: 9px;
+      margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .btn-xs {
+      padding: 7px 14px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 1px;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+      border-radius: 3px;
+    }
+    .btn-xs:hover { border-color: var(--green); color: var(--green); background: var(--greenlit); }
+    .btn-xs.danger:hover { border-color: var(--err); color: var(--err); background: #fef2f2; }
+    .btn-xs.accent {
+      background: linear-gradient(135deg, var(--green), var(--green2));
+      border-color: var(--green2);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(22,163,74,.2);
+    }
+    .btn-xs.accent:hover {
+      background: linear-gradient(135deg, var(--green2), #14532d);
+      box-shadow: 0 4px 12px rgba(22,163,74,.3);
+    }
+    .cnt {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--muted);
+    }
+    .cnt b { color: var(--green); font-weight: 700; }
+
+    /* Table */
+    .tbl-wrap { overflow: hidden; border-radius: 3px; border: 1px solid var(--border); }
+    table.contacts {
+      width: 100%; border-collapse: collapse;
+    }
+    table.contacts thead th {
+      background: var(--surface2);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 2px; color: var(--muted);
+      padding: 9px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    table.contacts tbody tr:hover td { background: var(--greenlit); }
+    table.contacts td {
+      border-bottom: 1px solid var(--border);
+    }
+    table.contacts tr:last-child td { border-bottom: none; }
+    table.contacts td.rn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--muted2);
+      padding: 0 6px 0 10px;
+      text-align: right; width: 32px;
+      vertical-align: middle;
+    }
+    table.contacts td input {
+      width: 100%; border: none;
+      background: transparent;
+      color: var(--text);
+      padding: 8px 10px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13.5px;
+      font-weight: 500;
+      outline: none;
+    }
+    table.contacts td input:focus { background: rgba(22,163,74,.04); }
+    table.contacts td input::placeholder { color: var(--muted2); }
+
+    .paste-zone {
+      border: 1px dashed var(--border2);
+      background: var(--surface2);
+      padding: 14px;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 1px; color: var(--muted);
+      margin-top: 10px;
+      border-radius: 3px;
+    }
+    .paste-zone kbd {
+      background: var(--greenlit);
+      border: 1px solid var(--border2);
+      padding: 2px 7px;
+      font-size: 10px;
+      border-radius: 2px;
+      color: var(--green2);
+    }
+
+    /* Message panel */
+    .msg-area {
+      width: 100%;
+      min-height: 150px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px; font-weight: 400; line-height: 1.65;
+      resize: vertical;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      border-radius: 3px;
+    }
+    .msg-area:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(22,163,74,.1);
+      background: #fff;
+    }
+    .msg-area::placeholder { color: var(--muted2); }
+    .msg-hint {
+      margin-top: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--muted); letter-spacing: .5px;
+    }
+    .msg-hint code {
+      background: var(--greenlit);
+      padding: 1px 7px;
+      color: var(--green2);
+      border-radius: 2px;
+      border: 1px solid var(--border2);
+    }
+
+    /* Interval */
+    .interval-wrap { margin-top: 22px; }
+    .interval-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .interval-row label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 2px; color: var(--muted);
+      text-transform: uppercase;
+    }
+    .interval-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px; font-weight: 600; color: var(--green);
+    }
+    input[type=range] {
+      width: 100%; -webkit-appearance: none;
+      height: 4px; background: var(--border); outline: none; cursor: pointer;
+      border-radius: 2px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      background: linear-gradient(135deg, var(--green), var(--green3));
+      cursor: pointer; border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(22,163,74,.3);
+    }
+    .presets {
+      display: flex; gap: 7px; margin-top: 10px; flex-wrap: wrap;
+    }
+    .pre {
+      padding: 5px 12px;
+      border: 1px solid var(--border2);
+      background: transparent; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; cursor: pointer; transition: all .2s;
+      border-radius: 3px;
+    }
+    .pre:hover, .pre.on {
+      border-color: var(--green); color: var(--green);
+      background: var(--greenlit);
+    }
+
+    .btn-send {
+      margin-top: 20px;
+      width: 100%;
+      background: linear-gradient(135deg, var(--green), var(--green2));
+      border: none; color: #fff;
+      padding: 16px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px; font-weight: 700; letter-spacing: 2px;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: 3px;
+      box-shadow: 0 4px 16px rgba(22,163,74,.3);
+    }
+    .btn-send:hover {
+      background: linear-gradient(135deg, var(--green2), #14532d);
+      box-shadow: 0 6px 20px rgba(22,163,74,.4);
+      transform: translateY(-1px);
+    }
+    .btn-send:disabled {
+      background: #d1d5db; box-shadow: none;
+      cursor: not-allowed; color: #9ca3af;
+      transform: none;
+    }
+
+    /* Progress */
+    .prog { margin-top: 18px; display: none; }
+    .prog-bar {
+      height: 4px; background: var(--border); margin-bottom: 10px;
+      overflow: hidden; border-radius: 2px;
+    }
+    .prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--green3));
+      width: 0%; transition: width .4s ease;
+    }
+    .prog-log {
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 10px; height: 130px; overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted);
+      border-radius: 3px;
+    }
+    .log-ok { color: var(--ok); }
+    .log-er { color: var(--err); }
+    .log-in { color: var(--green); font-weight: 500; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 22px; right: 22px; z-index: 9999;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--green);
+      padding: 12px 18px;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      transform: translateY(60px); opacity: 0;
+      transition: all .3s;
+      max-width: 300px;
+      border-radius: 3px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      color: var(--text);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.ok { border-left-color: var(--ok); }
+    .toast.er { border-left-color: var(--err); }
+
+    #excelInput { display: none; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--green3); }
+
+    /* Table scroll */
+    .tbl-wrap { max-height: 480px; overflow-y: auto; }
+
+    /* ════════════════════════════════
+       DASHBOARD COORDINADOR
+    ════════════════════════════════ */
+    #dashboardScreen {
+      flex-direction: column;
+      min-height: 100vh;
+      background: #f4f6f9;
+    }
+    .dash-topbar {
+      position: sticky; top: 0; z-index: 100;
+      height: 58px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .dash-topbar-left { display: flex; align-items: center; gap: 12px; }
+    .dash-wa-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dash-wa-icon svg { width: 20px; height: 20px; fill: #fff; }
+    .dash-title {
+      font-size: 18px; font-weight: 700; color: #1a202c; line-height: 1.1;
+    }
+    .dash-subtitle { font-size: 11px; color: #718096; margin-top: 1px; }
+    .dash-topbar-right { display: flex; align-items: center; gap: 12px; }
+    .dash-update-time {
+      font-size: 11px; color: #718096;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .dash-update-time svg { width: 14px; height: 14px; stroke: #718096; fill: none; }
+    .btn-export {
+      display: flex; align-items: center; gap: 7px;
+      background: #4F46E5; border: none; color: #fff;
+      padding: 9px 18px; border-radius: 8px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-export:hover { background: #4338CA; transform: translateY(-1px); }
+    .btn-export svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .btn-refresh {
+      display: flex; align-items: center; gap: 6px;
+      background: #fff; border: 1px solid #e2e8f0; color: #4a5568;
+      padding: 8px 14px; border-radius: 8px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-refresh:hover { border-color: #25D366; color: #25D366; background: #f0fdf4; }
+    .btn-refresh svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .btn-refresh.spinning svg { animation: spin .8s linear infinite; }
+
+    /* Filters bar */
+    .dash-filters {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 14px 28px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .filter-group {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .filter-label {
+      font-size: 10px; font-weight: 600; color: #718096;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .filter-select, .filter-date {
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #2d3748;
+      font-size: 13px; font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      outline: none;
+      min-width: 140px;
+      transition: border-color .2s;
+    }
+    .filter-select:focus, .filter-date:focus { border-color: #4F46E5; }
+    .filter-dates { display: flex; align-items: center; gap: 6px; }
+    .filter-dates span { font-size: 12px; color: #a0aec0; }
+    .btn-clear-filters {
+      display: flex; align-items: center; gap: 5px;
+      background: transparent; border: 1px solid #e2e8f0;
+      color: #718096; padding: 7px 12px; border-radius: 8px;
+      font-size: 12px; cursor: pointer; transition: all .2s; margin-top: 14px;
+    }
+    .btn-clear-filters:hover { border-color: #e53e3e; color: #e53e3e; }
+
+    /* Dashboard body */
+    .dash-body { padding: 22px 28px; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+    /* KPI cards */
+    .kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 22px; }
+    .kpi-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 20px 22px; display: flex; align-items: flex-start; gap: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+      transition: box-shadow .2s;
+    }
+    .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+    .kpi-icon {
+      width: 46px; height: 46px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kpi-icon svg { width: 22px; height: 22px; }
+    .kpi-icon.blue { background: #EEF2FF; }
+    .kpi-icon.blue svg { fill: none; stroke: #4F46E5; stroke-width: 1.8; }
+    .kpi-icon.green { background: #F0FDF4; }
+    .kpi-icon.green svg { fill: none; stroke: #16A34A; stroke-width: 1.8; }
+    .kpi-icon.teal { background: #F0F9FF; }
+    .kpi-icon.teal svg { fill: none; stroke: #0891B2; stroke-width: 1.8; }
+    .kpi-info { flex: 1; }
+    .kpi-label { font-size: 12px; color: #718096; margin-bottom: 4px; }
+    .kpi-value { font-size: 30px; font-weight: 800; color: #1a202c; line-height: 1; }
+    .kpi-delta {
+      font-size: 11px; font-weight: 600; margin-top: 6px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .kpi-delta.up { color: #16A34A; }
+    .kpi-delta.neutral { color: #718096; }
+
+    /* Charts grid */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+    .chart-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .chart-card.wide { grid-column: span 2; }
+    .chart-card.full { grid-column: span 3; }
+    .chart-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .chart-title {
+      font-size: 13px; font-weight: 600; color: #2d3748;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .chart-title-info {
+      width: 16px; height: 16px;
+      background: #EEF2FF; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: #4F46E5; font-weight: 700; cursor: default;
+    }
+    .chart-wrap { position: relative; }
+    .chart-wrap canvas { max-height: 220px; }
+
+    /* Rendimiento table */
+    .rend-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rend-table thead th {
+      font-size: 10px; font-weight: 600; color: #718096;
+      text-transform: uppercase; letter-spacing: .8px;
+      padding: 10px 12px; border-bottom: 1px solid #e2e8f0;
+      text-align: left; white-space: nowrap;
+    }
+    .rend-table tbody tr { transition: background .15s; }
+    .rend-table tbody tr:hover { background: #f8fafc; }
+    .rend-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #2d3748; }
+    .rend-table tr:last-child td { border-bottom: none; font-weight: 700; background: #f8fafc; }
+    .gestor-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 50%;
+      font-size: 11px; font-weight: 700; color: #fff; margin-right: 8px;
+    }
+    .pct-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .pct-bar-bg { flex: 1; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; min-width: 60px; }
+    .pct-bar-fill { height: 100%; border-radius: 3px; }
+    .pct-val { font-size: 12px; font-weight: 600; min-width: 38px; }
+    .pct-val.green { color: #16A34A; }
+    .pct-val.blue { color: #4F46E5; }
+
+    /* Insights */
+    .insights-section { margin-bottom: 28px; }
+    .insights-title {
+      font-size: 14px; font-weight: 700; color: #1a202c;
+      margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .insights-title::before {
+      content: ''; width: 3px; height: 16px;
+      background: linear-gradient(to bottom, #4F46E5, #7C3AED);
+      border-radius: 2px; display: inline-block;
+    }
+    .insights-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+    .insight-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 16px 18px; display: flex; align-items: flex-start; gap: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .insight-icon {
+      width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .insight-icon.green-bg { background: #DCFCE7; }
+    .insight-icon.blue-bg  { background: #EEF2FF; }
+    .insight-icon.amber-bg { background: #FEF3C7; }
+    .insight-icon.red-bg   { background: #FEE2E2; }
+    .insight-body {}
+    .insight-body strong { font-size: 12px; font-weight: 700; color: #1a202c; display: block; margin-bottom: 4px; }
+    .insight-body p { font-size: 11px; color: #718096; line-height: 1.5; }
+    .insight-body .highlight { color: #4F46E5; font-weight: 600; }
+    .insight-body .success { color: #16A34A; font-weight: 600; }
+    .insight-body .warning { color: #D97706; font-weight: 600; }
+    .insight-body .danger  { color: #DC2626; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginScreen" class="screen active">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+      </div>
+      <div class="brand">WHA<em>-MSG</em></div>
+      <div class="brand-sub">ENVÍO MASIVO · WHATSAPP</div>
+    </div>
+
+    <!-- ROL -->
+    <div class="field" style="margin-bottom:14px;">
+      <label>Rol</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="rolGestor" type="button">GESTOR</button>
+        <button class="toggle-btn" id="rolCoordinador" type="button">COORDINADOR</button>
+      </div>
+    </div>
+
+    <!-- COLA (solo Gestor) -->
+    <div class="field" id="colaField">
+      <label>Cola <span style="color:var(--err)">*</span></label>
+      <div class="toggle-group three">
+        <button class="toggle-btn" id="colaMora60" type="button">MORA 60+</button>
+        <button class="toggle-btn" id="colaMora30" type="button">MORA 30U</button>
+        <button class="toggle-btn" id="colaTc" type="button">TARJETA TC</button>
+      </div>
+    </div>
+
+    <!-- NOMBRE / APELLIDO -->
+    <div id="nombresField">
+      <div class="row2">
+        <div class="field">
+          <label>Nombre</label>
+          <input id="iNombre" type="text" placeholder="JUAN" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Apellido</label>
+          <input id="iApellido" type="text" placeholder="PÉREZ" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Contraseña</label>
+      <input id="iPwd" type="password" placeholder="••••••••••••">
+    </div>
+    <button class="btn-main" id="btnLogin">
+      <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      INGRESAR
+    </button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ══════════ QR ══════════ -->
+<div id="qrScreen" class="screen">
+  <div class="qr-card">
+    <div class="qr-left">
+      <h2>VINCULAR WHATSAPP</h2>
+      <div class="step">
+        <div class="step-n">1</div>
+        <div class="step-t">Abre <strong>WhatsApp</strong> en tu teléfono</div>
+      </div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <div class="step-t">Ve a <strong>Configuración → Dispositivos vinculados</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <div class="step-t">Toca <strong>"Vincular un dispositivo"</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-n">4</div>
+        <div class="step-t">Escanea el código QR que aparece a la derecha</div>
+      </div>
+    </div>
+    <div class="qr-right">
+      <div class="qr-box" id="qrBox">
+        <div class="qr-loading">
+          <div class="spinner"></div>
+          <span>Generando QR...</span>
+        </div>
+      </div>
+      <div class="qr-status" id="qrStatus">Esperando escaneo...</div>
+      <button class="btn-regen" id="btnRegen">↺ REGENERAR QR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MAIN ══════════ -->
+<div id="mainScreen" class="screen">
+
+  <div class="topbar">
+    <div class="tb-brand">
+      <div class="tb-logo-mini">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      </div>
+      WHA<em>-MSG</em>
+    </div>
+    <div class="tb-right">
+      <div class="wa-pill">
+        <div class="wa-dot" id="waDot"></div>
+        <span id="waLbl">WhatsApp conectado</span>
+      </div>
+      <div class="user-tag" id="userTag"></div>
+      <button class="btn-out" id="btnOut">SALIR</button>
+    </div>
+  </div>
+
+  <div class="main-wrap">
+
+    <!-- LEFT: Contactos -->
+    <div>
+      <div class="panel">
+        <div class="panel-hdr">CONTACTOS — LISTA DE ENVÍO</div>
+        <div class="tbl-ctrl">
+          <button class="btn-xs accent" id="btnImport">⬆ IMPORTAR EXCEL</button>
+          <button class="btn-xs" id="btnPaste">📋 PEGAR DESDE EXCEL</button>
+          <button class="btn-xs danger" id="btnClear">✕ LIMPIAR</button>
+          <div class="cnt">Contactos: <b id="cntNum">0</b> / 50</div>
+        </div>
+        <input type="file" id="excelInput" accept=".xlsx,.xls,.csv">
+        <div class="tbl-wrap">
+          <table class="contacts">
+            <thead>
+              <tr>
+                <th style="width:32px">#</th>
+                <th>NOMBRE</th>
+                <th>NÚMERO (502XXXXXXXX)</th>
+              </tr>
+            </thead>
+            <tbody id="tBody"></tbody>
+          </table>
+        </div>
+        <div class="paste-zone">
+          Copia las columnas Nombre y Número desde Excel y pega con <kbd>Ctrl+V</kbd>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Mensaje + controles -->
+    <div>
+      <div class="panel">
+        <div class="panel-hdr">MENSAJE</div>
+        <textarea class="msg-area" id="msgTxt"
+          placeholder="Hola {nombre}, te escribimos para informarte..."></textarea>
+        <div class="msg-hint">
+          Usa <code>{nombre}</code> para personalizar con el nombre del contacto
+        </div>
+
+        <div class="interval-wrap">
+          <div class="interval-row">
+            <label>INTERVALO ENTRE MENSAJES</label>
+            <span class="interval-val" id="iVal">40 seg</span>
+          </div>
+          <input type="range" id="iSlider" min="15" max="120" value="40">
+          <div class="presets">
+            <button class="pre" data-v="15">15s</button>
+            <button class="pre on" data-v="40">40s</button>
+            <button class="pre" data-v="60">1min</button>
+            <button class="pre" data-v="90">1:30</button>
+            <button class="pre" data-v="120">2min</button>
+          </div>
+        </div>
+
+        <button class="btn-send" id="btnSend">▶ INICIAR ENVÍO</button>
+
+        <div class="prog" id="progSection">
+          <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+          <div class="prog-log" id="progLog"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ DASHBOARD COORDINADOR ══════════ -->
+<div id="dashboardScreen" class="screen">
+
+  <!-- Topbar -->
+  <div class="dash-topbar">
+    <div class="dash-topbar-left">
+      <div class="dash-wa-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      </div>
+      <div>
+        <div class="dash-title">Insights canal WhatsApp</div>
+        <div class="dash-subtitle">Analiza el rendimiento de tus gestores y mensajes por WhatsApp</div>
+      </div>
+    </div>
+    <div class="dash-topbar-right">
+      <div class="dash-update-time">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Última actualización: <span id="dashLastUpdate">—</span>
+      </div>
+      <button class="btn-refresh" id="btnDashRefresh">
+        <svg viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Actualizar
+      </button>
+      <button class="btn-export" id="btnDashExport">
+        <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Exportar
+      </button>
+      <button class="btn-out" id="btnDashOut">SALIR</button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="dash-filters">
+    <div class="filter-group">
+      <div class="filter-label">Rango de fechas</div>
+      <div class="filter-dates">
+        <input type="date" class="filter-date" id="fDateFrom">
+        <span>-</span>
+        <input type="date" class="filter-date" id="fDateTo">
+      </div>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Cartera / Mora</div>
+      <select class="filter-select" id="fMora">
+        <option value="all">Todas</option>
+        <option value="mora30">Mora 30U</option>
+        <option value="mora60">Mora 60+</option>
+        <option value="tc">Tarjeta TC</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Gestor</div>
+      <select class="filter-select" id="fGestor">
+        <option value="all">Todos</option>
+      </select>
+    </div>
+    <div class="filter-group" style="justify-content:flex-end; margin-top:14px;">
+      <button class="btn-clear-filters" id="btnClearFilters">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        Limpiar filtros
+      </button>
+    </div>
+  </div>
+
+  <!-- Dashboard body -->
+  <div class="dash-body">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-icon blue">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+        </div>
+        <div class="kpi-info">
+          <div class="kpi-label">Mensajes enviados</div>
+          <div class="kpi-value" id="kpiEnviados">—</div>
+          <div class="kpi-delta up" id="kpiEnviadosDelta"></div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon green">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        </div>
+        <div class="kpi-info">
+          <div class="kpi-label">Mensajes leídos</div>
+          <div class="kpi-value" id="kpiLeidos">—</div>
+          <div class="kpi-delta neutral" id="kpiLeidosDelta"></div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon teal">
+          <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        </div>
+        <div class="kpi-info">
+          <div class="kpi-label">Mensajes con respuesta de cliente</div>
+          <div class="kpi-value" id="kpiRespuestas">—</div>
+          <div class="kpi-delta neutral" id="kpiRespuestasDelta"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row 1: 3 bar charts -->
+    <div class="charts-grid" style="grid-template-columns:1fr 1fr 1fr; margin-bottom:16px;">
+      <div class="chart-card">
+        <div class="chart-hdr">
+          <div class="chart-title">Mensajes enviados por gestor <div class="chart-title-info">i</div></div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartEnviadosGestor"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-hdr">
+          <div class="chart-title">Mensajes leídos vs enviados por gestor <div class="chart-title-info">i</div></div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartLeidosVsEnviados"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-hdr">
+          <div class="chart-title">Respuestas de cliente por gestor <div class="chart-title-info">i</div></div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartRespuestasGestor"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 2: tendencia (wide) -->
+    <div class="charts-grid" style="grid-template-columns:1fr; margin-bottom:16px;">
+      <div class="chart-card">
+        <div class="chart-hdr">
+          <div class="chart-title">Tendencia de mensajes enviados vs respuestas del cliente <div class="chart-title-info">i</div></div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartTendencia" style="max-height:200px;"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Rendimiento table -->
+    <div class="chart-card" style="margin-bottom:22px;">
+      <div class="chart-hdr">
+        <div class="chart-title">Rendimiento por gestor <div class="chart-title-info">i</div></div>
+      </div>
+      <table class="rend-table" id="rendTable">
+        <thead>
+          <tr>
+            <th>Gestor</th>
+            <th>Enviados</th>
+            <th>Entregados</th>
+            <th>Leídos</th>
+            <th>% Lectura</th>
+            <th>Respuestas de cliente</th>
+            <th>% Respuesta</th>
+          </tr>
+        </thead>
+        <tbody id="rendBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Insights -->
+    <div class="insights-section">
+      <div class="insights-title">Insights canal WhatsApp</div>
+      <div class="insights-grid" id="insightsGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+  </div><!-- /dash-body -->
+</div><!-- /dashboardScreen -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const socket = io();
+
+/* ─── state ─── */
+const MAX = 50;
+const PWD = 'Interconsumo2026';
+let contacts = [];
+let sending  = false;
+
+/* ─── helpers ─── */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+let toastTimer;
+function toast(msg, type='') {
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+function addLog(msg, cls='') {
+  const log = document.getElementById('progLog');
+  const d = document.createElement('div');
+  d.className = cls;
+  d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ─── LOGIN ─── */
+let selectedRol  = 'gestor';      // 'gestor' | 'coordinador'
+let selectedCola = '';            // 'mora60' | 'mora30' | 'tc'
+
+// ROL toggle
+document.getElementById('rolGestor').addEventListener('click', () => {
+  selectedRol = 'gestor';
+  document.getElementById('rolGestor').classList.add('active');
+  document.getElementById('rolCoordinador').classList.remove('active');
+  document.getElementById('colaField').style.display = 'block';
+  document.getElementById('nombresField').style.display = 'block';
+});
+document.getElementById('rolCoordinador').addEventListener('click', () => {
+  selectedRol = 'coordinador';
+  document.getElementById('rolCoordinador').classList.add('active');
+  document.getElementById('rolGestor').classList.remove('active');
+  document.getElementById('colaField').style.display = 'none';
+  document.getElementById('nombresField').style.display = 'block';
+});
+
+// COLA toggle
+['colaMora60','colaMora30','colaTc'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function() {
+    ['colaMora60','colaMora30','colaTc'].forEach(x =>
+      document.getElementById(x).classList.remove('active'));
+    this.classList.add('active');
+    selectedCola = this.id.replace('cola','').toLowerCase();
+  });
+});
+
+['iNombre','iApellido'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    const p = this.selectionStart;
+    this.value = this.value.toUpperCase();
+    this.setSelectionRange(p, p);
+  });
+});
+
+function tryLogin() {
+  const n  = document.getElementById('iNombre').value.trim();
+  const ap = document.getElementById('iApellido').value.trim();
+  const pw = document.getElementById('iPwd').value;
+  const err = document.getElementById('loginErr');
+
+  if (selectedRol === 'coordinador') {
+    // Coordinador: solo necesita contraseña
+    if (pw !== PWD) { err.textContent = 'Contraseña incorrecta'; return; }
+    err.textContent = '';
+    // Emitir login con nombre especial para coordinador
+    socket.emit('login', { nombre: 'COORDINADOR', apellido: 'ADMIN', password: pw });
+    return;
+  }
+
+  // Gestor
+  if (!n || !ap) { err.textContent = 'Ingresa nombre y apellido'; return; }
+  if (!selectedCola) { err.textContent = 'Selecciona una cola'; return; }
+  if (pw !== PWD) { err.textContent = 'Contraseña incorrecta'; return; }
+  err.textContent = '';
+  socket.emit('login', { nombre: n, apellido: ap, password: pw, cola: selectedCola });
+}
+
+document.getElementById('btnLogin').addEventListener('click', tryLogin);
+['iNombre','iApellido','iPwd'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => e.key === 'Enter' && tryLogin())
+);
+
+socket.on('login_success_DISABLED_REPLACED_BY_DASHBOARD', ({ nombre, apellido }) => {
+socket.on('login_error', msg => document.getElementById('loginErr').textContent = msg);
+
+/* ─── QR ─── */
+socket.on('qr', dataUrl => {
+  document.getElementById('qrBox').innerHTML =
+    `<img src="${dataUrl}" alt="QR">`;
+  document.getElementById('qrStatus').textContent = 'Escanea el código ↑';
+});
+
+socket.on('connected', () => {
+  document.getElementById('qrBox').innerHTML = `
+    <div style="width:220px;height:220px;display:flex;flex-direction:column;
+                align-items:center;justify-content:center;gap:12px;
+                background:rgba(22,163,74,.08);border:2px solid #16a34a;border-radius:4px">
+      <div style="font-size:42px">✓</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;
+                  color:#16a34a;letter-spacing:2px">CONECTADO</div>
+    </div>`;
+  document.getElementById('qrStatus').textContent = '✓ WhatsApp vinculado!';
+  document.getElementById('btnRegen').style.display = 'none';
+  setTimeout(() => showScreen('mainScreen'), 1600);
+});
+
+socket.on('disconnected', () => {
+  toast('WhatsApp desconectado', 'er');
+  document.getElementById('waDot').classList.add('off');
+  document.getElementById('waLbl').textContent = 'WhatsApp desconectado';
+});
+
+/* ── botón regenerar QR ── */
+document.getElementById('btnRegen').addEventListener('click', () => {
+  document.getElementById('qrBox').innerHTML = `
+    <div class="qr-loading">
+      <div class="spinner"></div>
+      <span>Generando QR...</span>
+    </div>`;
+  document.getElementById('qrStatus').textContent = 'Reiniciando sesión...';
+  socket.emit('regenerar_qr');
+  toast('Regenerando QR...', '');
+});
+
+/* ─── TABLE ─── */
+function initRows() {
+  contacts = Array.from({length: MAX}, () => ({ nombre:'', numero:'' }));
+  renderRows();
+}
+
+function renderRows() {
+  const tb = document.getElementById('tBody');
+  tb.innerHTML = '';
+  contacts.forEach((c, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rn">${i+1}</td>
+      <td><input type="text" value="${esc(c.nombre)}" placeholder="Nombre"
+           data-r="${i}" data-c="nombre" maxlength="60"></td>
+      <td><input type="text" value="${esc(c.numero)}" placeholder="50245953780"
+           data-r="${i}" data-c="numero" maxlength="15"></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', function() {
+      contacts[+this.dataset.r][this.dataset.c] = this.value;
+      updateCnt();
+    });
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        const all = [...tb.querySelectorAll('input')];
+        const nx = all[all.indexOf(this) + 1];
+        if (nx) nx.focus();
+      }
+    });
+  });
+  updateCnt();
+}
+
+function esc(s) {
+  return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function updateCnt() {
+  document.getElementById('cntNum').textContent =
+    contacts.filter(c => c.numero.trim()).length;
+}
+
+initRows();
+
+/* Paste handler */
+document.addEventListener('paste', e => {
+  if (!document.getElementById('mainScreen').classList.contains('active')) return;
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'TEXTAREA' || ae.dataset?.c)) return;
+  parsePaste(e.clipboardData.getData('text'));
+});
+
+document.getElementById('btnPaste').addEventListener('click', async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    parsePaste(t);
+  } catch {
+    toast('Usa Ctrl+V con el cursor fuera de los campos', '');
+  }
+});
+
+function parsePaste(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  let rows = [];
+  for (const line of lines) {
+    const cols = line.split('\t');
+    if (cols.length < 2) continue;
+    const n   = (cols[0] || '').trim();
+    const num = (cols[1] || '').trim().replace(/[^0-9]/g, '');
+    if (n || num) rows.push({ nombre: n, numero: num });
+  }
+  if (rows.length && /^(nombre|name)$/i.test(rows[0].nombre)) rows.shift();
+  if (!rows.length) { toast('No se detectaron datos', ''); return; }
+  if (rows.length > MAX) { rows = rows.slice(0, MAX); toast(`Solo los primeros ${MAX} registros`, ''); }
+  for (let i = 0; i < MAX; i++) contacts[i] = rows[i] || { nombre:'', numero:'' };
+  renderRows();
+  toast(`✓ ${rows.length} contactos importados`, 'ok');
+}
+
+/* Excel import */
+document.getElementById('btnImport').addEventListener('click', () =>
+  document.getElementById('excelInput').click()
+);
+
+document.getElementById('excelInput').addEventListener('change', function() {
+  const f = this.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      let nIdx = 0, nuIdx = 1;
+      if (data.length) {
+        const hdr = data[0].map(h => (h||'').toString().toLowerCase().trim());
+        const ni  = hdr.findIndex(h => h.includes('nombre') || h.includes('name'));
+        const nui = hdr.findIndex(h => h.includes('numero') || h.includes('number') || h.includes('tel'));
+        if (ni >= 0)  nIdx  = ni;
+        if (nui >= 0) nuIdx = nui;
+      }
+      const raw = isNaN(data[0]?.[nuIdx]) ? data.slice(1) : data;
+      let rows = raw
+        .map(r => ({ nombre: (r[nIdx]||'').toString().trim(), numero: (r[nuIdx]||'').toString().replace(/[^0-9]/g,'') }))
+        .filter(r => r.numero);
+      if (rows.length > MAX) rows = rows.slice(0, MAX);
+      for (let i = 0; i < MAX; i++) contacts[i] = rows[i] || { nombre:'', numero:'' };
+      renderRows();
+      toast(`✓ ${rows.length} contactos desde Excel`, 'ok');
+    } catch { toast('Error al leer el archivo', 'er'); }
+  };
+  r.readAsArrayBuffer(f);
+  this.value = '';
+});
+
+/* Clear */
+document.getElementById('btnClear').addEventListener('click', () => {
+  if (!confirm('¿Limpiar todos los contactos?')) return;
+  initRows();
+  toast('Lista limpiada', '');
+});
+
+/* ─── INTERVAL ─── */
+const slider = document.getElementById('iSlider');
+slider.addEventListener('input', function() {
+  updateIntervalDisplay(+this.value);
+  document.querySelectorAll('.pre').forEach(b => b.classList.toggle('on', +b.dataset.v === +this.value));
+});
+document.querySelectorAll('.pre').forEach(b => b.addEventListener('click', function() {
+  const v = +this.dataset.v;
+  slider.value = v;
+  updateIntervalDisplay(v);
+  document.querySelectorAll('.pre').forEach(x => x.classList.toggle('on', x === this));
+}));
+function updateIntervalDisplay(s) {
+  const m = Math.floor(s/60), sec = s%60;
+  document.getElementById('iVal').textContent = m ? `${m}:${String(sec).padStart(2,'0')} min` : `${s} seg`;
+}
+
+/* ─── SEND ─── */
+document.getElementById('btnSend').addEventListener('click', () => {
+  if (sending) return;
+  const valid = contacts.filter(c => c.numero.trim());
+  if (!valid.length) { toast('No hay contactos con número', ''); return; }
+  const msg = document.getElementById('msgTxt').value.trim();
+  if (!msg) { toast('Escribe el mensaje', ''); return; }
+  const iv = +document.getElementById('iSlider').value;
+
+  sending = true;
+  const btn = document.getElementById('btnSend');
+  btn.disabled = true;
+  btn.textContent = 'ENVIANDO...';
+
+  const ps = document.getElementById('progSection');
+  ps.style.display = 'block';
+  document.getElementById('progLog').innerHTML = '';
+  document.getElementById('progFill').style.width = '0%';
+
+  addLog(`Iniciando: ${valid.length} mensajes, intervalo ${iv}s`, 'log-in');
+  socket.emit('send_messages', { contacts: valid, message: msg, interval: iv });
+});
+
+socket.on('message_sent', ({ index, nombre, total }) => {
+  addLog(`✓ Enviado a ${nombre || '—'}`, 'log-ok');
+  const v = contacts.filter(c => c.numero.trim()).length;
+  document.getElementById('progFill').style.width = `${((index+1)/v)*100}%`;
+});
+
+socket.on('message_error', ({ nombre, error }) => {
+  addLog(`✗ Error → ${nombre}: ${error}`, 'log-er');
+});
+
+socket.on('sending_complete', ({ total }) => {
+  addLog(`Envío finalizado: ${total} mensajes`, 'log-in');
+  sending = false;
+  const btn = document.getElementById('btnSend');
+  btn.disabled = false; btn.textContent = '▶ INICIAR ENVÍO';
+  toast(`✓ Envío completado: ${total}`, 'ok');
+});
+
+socket.on('send_error', msg => {
+  toast(msg, 'er');
+  sending = false;
+  const btn = document.getElementById('btnSend');
+  btn.disabled = false; btn.textContent = '▶ INICIAR ENVÍO';
+});
+
+/* ─── DASHBOARD COORDINADOR ─── */
+
+// Detect if login is coordinator
+let isCoordinator = false;
+
+// Override login_success to check coordinator
+const _origLoginSuccess = null;
+socket.on('login_success', ({ nombre, apellido }) => {
+  document.getElementById('userTag').textContent = `${nombre} ${apellido}`;
+  const fullName = `${nombre} ${apellido}`.toUpperCase().trim();
+  if (nombre.toUpperCase() === 'COORDINADOR' || fullName.includes('COORDINADOR')) {
+    isCoordinator = true;
+    // Don't go to QR, go straight to dashboard
+    initDashboard();
+    showScreen('dashboardScreen');
+  } else {
+    isCoordinator = false;
+    // Show cola badge in userTag
+    const colaLabels = { mora60:'Mora 60+', mora30:'Mora 30U', tc:'Tarjeta TC' };
+    const colaLabel  = colaLabels[selectedCola] || '';
+    document.getElementById('userTag').textContent =
+      `${nombre} ${apellido}${colaLabel ? ' · ' + colaLabel : ''}`;
+    showScreen('qrScreen');
+  }
+});
+
+/* ── Dashboard State ── */
+let dashCharts = {};
+const GESTOR_COLORS = ['#4F46E5','#16A34A','#0891B2','#D97706','#DC2626','#7C3AED'];
+const GESTOR_NAMES_COLORS = {};
+
+// Base data store - keyed by gestor name
+let dashRawData = {};
+
+function generateDashData(filters) {
+  // Simulated realistic data for demo - in production this comes from your DB/backend
+  const gestores = ['Luis','Ana','Carlos','Marta','Jorge'];
+  const moraMultipliers = { all:1, mora30:.7, mora60:1, tc:.5 };
+  const mul = moraMultipliers[filters.mora] || 1;
+
+  // Date range factor
+  const d1 = new Date(filters.dateFrom);
+  const d2 = new Date(filters.dateTo);
+  const days = Math.max(1, Math.round((d2-d1)/(1000*60*60*24))+1);
+  const dayFactor = days/10;
+
+  const base = {
+    Luis:  { enviados:280, entregados:265, leidos:210, respuestas:42, tasaLectura:.793, tasaRespuesta:.158 },
+    Ana:   { enviados:190, entregados:182, leidos:120, respuestas:26, tasaLectura:.659, tasaRespuesta:.143 },
+    Carlos:{ enviados:140, entregados:132, leidos: 95, respuestas:15, tasaLectura:.72,  tasaRespuesta:.113 },
+    Marta: { enviados:130, entregados:122, leidos: 85, respuestas: 8, tasaLectura:.696, tasaRespuesta:.065 },
+    Jorge: { enviados:105, entregados:100, leidos: 80, respuestas: 4, tasaLectura:.80,  tasaRespuesta:.040 },
+  };
+
+  const result = {};
+  let totalEnv=0, totalLei=0, totalResp=0;
+
+  gestores.forEach(g => {
+    const b = base[g];
+    const env  = Math.round(b.enviados  * mul * dayFactor);
+    const ent  = Math.round(b.entregados* mul * dayFactor);
+    const lei  = Math.round(b.leidos    * mul * dayFactor);
+    const resp = Math.round(b.respuestas* mul * dayFactor);
+    result[g] = {
+      enviados: env, entregados: ent, leidos: lei, respuestas: resp,
+      pctLectura: b.tasaLectura,
+      pctRespuesta: b.tasaRespuesta
+    };
+    totalEnv  += env;
+    totalLei  += lei;
+    totalResp += resp;
+  });
+
+  // Tendencia diaria
+  const tendencia = [];
+  for (let i=0; i<Math.min(days,10); i++) {
+    const d = new Date(d1); d.setDate(d1.getDate()+i);
+    const label = `${String(d.getDate()).padStart(2,'0')} ${d.toLocaleString('es',{month:'short'})}`;
+    const envDay = Math.round((totalEnv/Math.min(days,10)) * (0.7 + Math.random()*0.6));
+    const respDay= Math.round((totalResp/Math.min(days,10))* (0.7 + Math.random()*0.6));
+    tendencia.push({ label, enviados: envDay, respuestas: respDay });
+  }
+
+  return { gestores: result, tendencia, totals:{ enviados:totalEnv, leidos:totalLei, respuestas:totalResp }};
+}
+
+function getFilters() {
+  return {
+    dateFrom: document.getElementById('fDateFrom').value,
+    dateTo:   document.getElementById('fDateTo').value,
+    mora:     document.getElementById('fMora').value,
+    gestor:   document.getElementById('fGestor').value,
+  };
+}
+
+function initDashboard() {
+  // Set default date range (last 10 days)
+  const today = new Date();
+  const tenAgo = new Date(); tenAgo.setDate(today.getDate()-9);
+  document.getElementById('fDateTo').value = today.toISOString().split('T')[0];
+  document.getElementById('fDateFrom').value = tenAgo.toISOString().split('T')[0];
+
+  updateDashboard();
+}
+
+function updateDashboard() {
+  const btn = document.getElementById('btnDashRefresh');
+  btn.classList.add('spinning');
+
+  setTimeout(() => {
+    const filters = getFilters();
+    const data = generateDashData(filters);
+
+    // Filter by gestor if selected
+    let gestorKeys = Object.keys(data.gestores);
+    if (filters.gestor !== 'all') {
+      gestorKeys = gestorKeys.filter(g => g === filters.gestor);
+    }
+
+    // KPIs
+    let totEnv=0, totLei=0, totResp=0;
+    gestorKeys.forEach(g => {
+      totEnv  += data.gestores[g].enviados;
+      totLei  += data.gestores[g].leidos;
+      totResp += data.gestores[g].respuestas;
+    });
+
+    document.getElementById('kpiEnviados').textContent  = totEnv.toLocaleString('es');
+    document.getElementById('kpiLeidos').textContent    = totLei.toLocaleString('es');
+    document.getElementById('kpiRespuestas').textContent= totResp.toLocaleString('es');
+
+    const pctLei  = totEnv>0 ? ((totLei/totEnv)*100).toFixed(1) : 0;
+    const pctResp = totEnv>0 ? ((totResp/totEnv)*100).toFixed(1) : 0;
+    document.getElementById('kpiEnviadosDelta').innerHTML  = '↑ 12.4% vs periodo anterior';
+    document.getElementById('kpiLeidosDelta').textContent  = `${pctLei}% del total enviado`;
+    document.getElementById('kpiRespuestasDelta').textContent = `${pctResp}% del total enviado`;
+
+    // Update last update time
+    const now = new Date();
+    document.getElementById('dashLastUpdate').textContent =
+      `${now.toLocaleDateString('es',{day:'2-digit',month:'2-digit',year:'numeric'})} ${now.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})} AM`;
+
+    // Populate gestor filter
+    const fGestor = document.getElementById('fGestor');
+    const allGestores = Object.keys(data.gestores);
+    if (fGestor.options.length <= 1) {
+      allGestores.forEach(g => {
+        const opt = document.createElement('option'); opt.value=g; opt.textContent=g;
+        fGestor.appendChild(opt);
+      });
+    }
+
+    // Assign colors
+    gestorKeys.forEach((g,i) => { GESTOR_NAMES_COLORS[g] = GESTOR_COLORS[i % GESTOR_COLORS.length]; });
+
+    renderCharts(data, gestorKeys);
+    renderRendTable(data, gestorKeys, totEnv, totLei, totResp);
+    renderInsights(data, gestorKeys);
+
+    btn.classList.remove('spinning');
+    toast('Dashboard actualizado', 'ok');
+  }, 600);
+}
+
+function destroyChart(id) {
+  if (dashCharts[id]) { dashCharts[id].destroy(); delete dashCharts[id]; }
+}
+
+function renderCharts(data, gestorKeys) {
+  const labels = gestorKeys;
+  const enviados   = gestorKeys.map(g => data.gestores[g].enviados);
+  const leidos     = gestorKeys.map(g => data.gestores[g].leidos);
+  const respuestas = gestorKeys.map(g => data.gestores[g].respuestas);
+  const colors     = gestorKeys.map(g => GESTOR_NAMES_COLORS[g]);
+
+  const barOpts = {
+    responsive:true, maintainAspectRatio:true,
+    plugins:{ legend:{ display:false } },
+    scales:{
+      x:{ grid:{ display:false }, ticks:{ font:{ size:11 }, color:'#718096' } },
+      y:{ grid:{ color:'#f1f5f9' }, ticks:{ font:{ size:11 }, color:'#718096' } }
+    }
+  };
+
+  // Chart 1: Enviados por gestor (horizontal bar)
+  destroyChart('env');
+  dashCharts['env'] = new Chart(document.getElementById('chartEnviadosGestor'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ data:enviados, backgroundColor:colors, borderRadius:4, borderSkipped:false }]
+    },
+    options:{ ...barOpts, indexAxis:'y', scales:{ x:{ grid:{ color:'#f1f5f9' }, ticks:{ font:{size:11}, color:'#718096' } }, y:{ grid:{ display:false }, ticks:{ font:{size:11}, color:'#718096' } } } }
+  });
+
+  // Chart 2: Leidos vs Enviados (grouped bar)
+  destroyChart('lei');
+  dashCharts['lei'] = new Chart(document.getElementById('chartLeidosVsEnviados'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Enviados', data:enviados, backgroundColor:'rgba(79,70,229,.8)', borderRadius:3 },
+        { label:'Leídos',   data:leidos,   backgroundColor:'rgba(22,163,74,.8)',  borderRadius:3 }
+      ]
+    },
+    options:{
+      ...barOpts,
+      plugins:{ legend:{ display:true, position:'top', labels:{ font:{size:11}, boxWidth:12, padding:10 } } }
+    }
+  });
+
+  // Chart 3: Respuestas por gestor (bar)
+  destroyChart('resp');
+  dashCharts['resp'] = new Chart(document.getElementById('chartRespuestasGestor'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ data:respuestas, backgroundColor:colors, borderRadius:4, borderSkipped:false }]
+    },
+    options:barOpts
+  });
+
+  // Chart 4: Tendencia línea
+  destroyChart('tend');
+  const tend = data.tendencia;
+  dashCharts['tend'] = new Chart(document.getElementById('chartTendencia'), {
+    type:'line',
+    data:{
+      labels: tend.map(t=>t.label),
+      datasets:[
+        {
+          label:'Mensajes enviados',
+          data: tend.map(t=>t.enviados),
+          borderColor:'#4F46E5', backgroundColor:'rgba(79,70,229,.1)',
+          borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#4F46E5',
+          tension:.3, fill:true
+        },
+        {
+          label:'Respuestas cliente',
+          data: tend.map(t=>t.respuestas),
+          borderColor:'#16A34A', backgroundColor:'rgba(22,163,74,.08)',
+          borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#16A34A',
+          tension:.3, fill:true
+        }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ display:true, position:'top', labels:{ font:{size:11}, boxWidth:12, padding:10 } } },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ font:{size:10}, color:'#718096' } },
+        y:{ grid:{ color:'#f1f5f9' }, ticks:{ font:{size:11}, color:'#718096' } }
+      }
+    }
+  });
+}
+
+function renderRendTable(data, gestorKeys, totEnv, totLei, totResp) {
+  const tbody = document.getElementById('rendBody');
+  tbody.innerHTML = '';
+  let totEnt = 0;
+
+  gestorKeys.forEach((g, i) => {
+    const d = data.gestores[g];
+    totEnt += d.entregados;
+    const color = GESTOR_NAMES_COLORS[g];
+    const pctL  = (d.pctLectura*100).toFixed(1);
+    const pctR  = (d.pctRespuesta*100).toFixed(1);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="gestor-badge" style="background:${color}">${g[0]}</span>${g}</td>
+      <td>${d.enviados.toLocaleString('es')}</td>
+      <td>${d.entregados.toLocaleString('es')}</td>
+      <td>${d.leidos.toLocaleString('es')}</td>
+      <td>
+        <div class="pct-bar-wrap">
+          <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${pctL}%;background:#16A34A"></div></div>
+          <span class="pct-val green">${pctL}%</span>
+        </div>
+      </td>
+      <td>${d.respuestas}</td>
+      <td>
+        <div class="pct-bar-wrap">
+          <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${Math.min(pctR*3,100)}%;background:#4F46E5"></div></div>
+          <span class="pct-val blue">${pctR}%</span>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Total row
+  const totPctL  = totEnv>0 ? ((totLei/totEnv)*100).toFixed(1) : '0.0';
+  const totPctR  = totEnv>0 ? ((totResp/totEnv)*100).toFixed(1) : '0.0';
+  const trTot = document.createElement('tr');
+  trTot.innerHTML = `
+    <td>Total</td>
+    <td>${totEnv.toLocaleString('es')}</td>
+    <td>${totEnt.toLocaleString('es')}</td>
+    <td>${totLei.toLocaleString('es')}</td>
+    <td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${totPctL}%;background:#16A34A"></div></div><span class="pct-val green">${totPctL}%</span></div></td>
+    <td>${totResp}</td>
+    <td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${Math.min(parseFloat(totPctR)*3,100)}%;background:#4F46E5"></div></div><span class="pct-val blue">${totPctR}%</span></div></td>`;
+  tbody.appendChild(trTot);
+}
+
+function renderInsights(data, gestorKeys) {
+  // Find insights
+  let topResp = null, topLectura = null, worstInteraccion = null;
+  let maxResp = -1, maxLect = -1, minLect = 999;
+
+  gestorKeys.forEach(g => {
+    const d = data.gestores[g];
+    if (d.respuestas > maxResp)      { maxResp = d.respuestas; topResp = g; }
+    if (d.pctLectura > maxLect)      { maxLect = d.pctLectura; topLectura = g; }
+    if (d.pctRespuesta < minLect)    { minLect = d.pctRespuesta; worstInteraccion = g; }
+  });
+
+  // Best response hour (fixed insight based on data)
+  const insightsHtml = `
+    <div class="insight-card">
+      <div class="insight-icon green-bg">📈</div>
+      <div class="insight-body">
+        <strong>${topResp || '—'} lidera en respuestas de clientes</strong>
+        <p>Con <span class="success">${topResp ? data.gestores[topResp].respuestas : 0} respuestas</span>
+        (${topResp ? (data.gestores[topResp].pctRespuesta*100).toFixed(1) : 0}% sobre entregados),
+        es el gestor con mejor desempeño.</p>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon blue-bg">👁️</div>
+      <div class="insight-body">
+        <strong>${topLectura || '—'} tiene la mejor tasa de lectura</strong>
+        <p><span class="highlight">${topLectura ? (data.gestores[topLectura].pctLectura*100).toFixed(1) : 0}% de lectura</span>
+        sobre mensajes entregados, excelente efectividad de contenido.</p>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon amber-bg">🕐</div>
+      <div class="insight-body">
+        <strong>Mejor horario de respuesta del cliente</strong>
+        <p>Los clientes responden más entre <span class="warning">5:00 p.m. y 7:00 p.m.</span><br>
+        +35% más interacción en ese horario.</p>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon red-bg">⚠️</div>
+      <div class="insight-body">
+        <strong>${worstInteraccion || '—'} necesita mejorar la interacción</strong>
+        <p>Cuenta con <span class="danger">${worstInteraccion ? (data.gestores[worstInteraccion].pctRespuesta*100).toFixed(1) : 0}% de respuestas</span>
+        sobre entregados, por debajo del promedio.</p>
+      </div>
+    </div>`;
+  document.getElementById('insightsGrid').innerHTML = insightsHtml;
+}
+
+/* Dashboard event listeners */
+document.getElementById('btnDashRefresh').addEventListener('click', updateDashboard);
+document.getElementById('btnDashOut').addEventListener('click', () => location.reload());
+
+document.getElementById('btnClearFilters').addEventListener('click', () => {
+  const today = new Date();
+  const tenAgo = new Date(); tenAgo.setDate(today.getDate()-9);
+  document.getElementById('fDateTo').value    = today.toISOString().split('T')[0];
+  document.getElementById('fDateFrom').value  = tenAgo.toISOString().split('T')[0];
+  document.getElementById('fMora').value      = 'all';
+  document.getElementById('fGestor').value    = 'all';
+  updateDashboard();
+});
+
+['fDateFrom','fDateTo','fMora','fGestor'].forEach(id => {
+  document.getElementById(id).addEventListener('change', updateDashboard);
+});
+
+document.getElementById('btnDashExport').addEventListener('click', () => {
+  const filters = getFilters();
+  const data = generateDashData(filters);
+  const rows = [['Gestor','Enviados','Entregados','Leídos','% Lectura','Respuestas','% Respuesta']];
+  Object.keys(data.gestores).forEach(g => {
+    const d = data.gestores[g];
+    rows.push([g, d.enviados, d.entregados, d.leidos,
+      (d.pctLectura*100).toFixed(1)+'%', d.respuestas,
+      (d.pctRespuesta*100).toFixed(1)+'%']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Dashboard WhatsApp');
+  XLSX.writeFile(wb, `dashboard_whatsapp_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('✓ Excel exportado', 'ok');
+});
+
+/* Logout gestor normal */
+document.getElementById('btnOut').addEventListener('click', () => {
+  if (sending && !confirm('Hay un envío en curso. ¿Salir de todas formas?')) return;
+  location.reload();
+});
+</script>
+</body>
+</html>
