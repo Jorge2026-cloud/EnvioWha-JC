@@ -1,13 +1,13 @@
 {
   "name": "enviowha-jc",
   "version": "1.0.0",
-  "description": "Envío masivo WhatsApp - InterConsumo",
+  "description": "Envío masivo WhatsApp",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",
@@ -17,5 +17,9 @@
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.4",
     "xlsx": "^0.18.5"
+  },
+  "optionalDependencies": {
+    "sharp": "*",
+    "canvas": "*"
   }
 }
