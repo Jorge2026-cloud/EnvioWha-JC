@@ -1,12 +1,20 @@
-FROM node:18
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install --legacy-peer-deps
-
-COPY . .
-
-EXPOSE 8080
-
-CMD ["node", "server.js"]
+{
+  "name": "interconsumo-whatsapp-masivo",
+  "version": "1.0.0",
+  "description": "Envio masivo WhatsApp - InterConsumo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "6.7.8",
+    "express": "^4.18.2",
+    "pino": "^8.21.0",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
